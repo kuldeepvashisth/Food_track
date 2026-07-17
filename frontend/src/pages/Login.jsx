@@ -1,14 +1,13 @@
 import React, { useState } from 'react'
-import { useNavigate,Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { FaEyeSlash } from "react-icons/fa";  //<FaEyeSlash /> cloased eye
 import { FaEye } from "react-icons/fa";  // <FaEye /> open eye
 import { FcGoogle } from "react-icons/fc"; //google icon for signup with gopgle
 import axios from 'axios';
-import { serverUrl } from '../App.jsx';
+import { serverUrl } from '../config.js';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { app,auth } from '../../firebase.js';
-
-
+import { auth } from '../../firebase.js';
+import { ClipLoader } from 'react-spinners'
 
 export default function Login() {
    const primarycolor="#ff4f0f"
@@ -21,6 +20,7 @@ export default function Login() {
    const [Email,setEmail]=useState('')
     const [password,setPassword]=useState('')
     const [error,setError]=useState('')
+    const [loading,setLoading]=useState(false)
 
    const getErrorMessage = (err) => {
      return err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Something went wrong';
@@ -29,6 +29,8 @@ export default function Login() {
    
    const handleLogin = async (e) => {
      e.preventDefault();
+     setLoading(true); 
+     setError('');
      console.log('LOgin payload:', { Email, password,});
      try {
        const result = await axios.post(
@@ -43,6 +45,8 @@ export default function Login() {
        console.log('Login request failed:', message);
        console.log('Response data:', err.response?.data);
        console.log('Response status:', err.response?.status);
+     } finally {
+       setLoading(false);
      }
    }
 
@@ -116,13 +120,15 @@ export default function Login() {
       <p className='text-red-500 text-center mb-3'>*{error}</p>
 
       {/* Login button */}
-      <form onSubmit={handleLogin}>
+     
       <button 
-        type="submit"
-        className='text-2xl  w-full  mt-2 font-semibold text-white bg-orange-500 hover:bg-orange-700 py-2 px-4 rounded-lg'>
-          Login
+        type="button"
+        className='text-2xl w-full mt-2 font-semibold text-white bg-orange-500 hover:bg-orange-700 py-2 px-4 rounded-lg disabled:opacity-70 disabled:cursor-not-allowed'
+        onClick={handleLogin}
+        disabled={loading}
+      >
+        {loading ? <div className='flex items-center justify-center'><ClipLoader size={20} color='white'/></div> : 'Login'}
       </button>
-      </form>
      
      <button className=' w-full flex items-center justify-center gap-2 mt-4 rounded-lg py-3 hover:bg-blue-300 bg-#00cccc-400 '
      onClick={handleGoogleAuth}

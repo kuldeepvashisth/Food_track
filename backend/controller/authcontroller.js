@@ -65,7 +65,6 @@ exports.postlogin = async (req, res) => {
         const userEmail = Email;
         const user = await User.findOne({ Email: userEmail });
         if (!user) {
-            res.redirect('/signup');
             return res.status(400).json({ message: "user not exist" })
         }
         if (!user.password) {

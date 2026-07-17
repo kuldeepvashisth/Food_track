@@ -4,9 +4,11 @@ import { FaEyeSlash } from "react-icons/fa";  //<FaEyeSlash /> cloased eye
 import { FaEye } from "react-icons/fa";  // <FaEye /> open eye
 import { FcGoogle } from "react-icons/fc"; //google icon for signup with gopgle
 import axios from 'axios';
-import { serverUrl } from '../App.jsx';
+import { serverUrl } from '../config.js';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { app,auth } from '../../firebase.js';
+import { ClipLoader } from 'react-spinners'
+
 export default function Signup() {
    const primarycolor="#ff4f0f"
    const hovercolor="#e64323"
@@ -22,6 +24,7 @@ export default function Signup() {
     const [password,setPassword]=useState('')
     const [mobile,setMobile]=useState('')
     const [error,setError]=useState('')
+    const [loading,setLoading]=useState(false)
 
    const getErrorMessage = (err) => {
      return err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Something went wrong';
@@ -30,6 +33,7 @@ export default function Signup() {
    const handleSignup = async (e) => {
      e.preventDefault();
      console.log('Signup payload:', { Fullname, Email, password, mobile, role });
+     setLoading(true) //jb request gyi loading start
      try {
        const result = await axios.post(
          `${serverUrl}/api/auth/signup`,
@@ -38,6 +42,7 @@ export default function Signup() {
        );
        console.log('Signup success:', result.data);
        navigate('/login');
+       setLoading(false) //response aa gya loading stop
      } catch (err) {
        const message = getErrorMessage(err); //geterror msg function is defined above
        setError(message);
@@ -150,15 +155,15 @@ export default function Signup() {
 {/* w-40 mx-auto block */}
 {/*signup btn*/}
 {/* w-40 mx-auto block */}
-      <form onSubmit={handleSignup}>
+    
       <button 
-        type="submit"
         className='text-2xl  w-full  mt-2 font-semibold text-white bg-orange-500 hover:bg-orange-700 py-2 px-4 rounded-lg'
-        >
+       onClick={handleSignup} disabled={loading}
+       >
+        {loading?<ClipLoader size={20}/>:"SignUp" }
         Signup
       </button>
-      </form>
-
+    
      
 
      {/* Sign Up with Google*/}

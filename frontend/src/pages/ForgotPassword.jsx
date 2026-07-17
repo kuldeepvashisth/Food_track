@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FaEyeSlash } from "react-icons/fa";  //<FaEyeSlash /> cloased eye
 import { FaEye } from "react-icons/fa";  // <FaEye /> open eye
 import axios from 'axios';
-import { serverUrl } from '../App';
+import { serverUrl } from '../config.js';
 
 function ForgotPassword() {
     const [step, setStep] = useState(1);
