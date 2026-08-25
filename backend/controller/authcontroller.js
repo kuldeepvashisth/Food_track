@@ -81,16 +81,16 @@ exports.postlogin = async (req, res) => {
 
         const token = generateToken(user._id);
 
+        const userSafe = user.toObject();
+        delete userSafe.password;
+
         res.cookie("token", token, {
             secure: false,
             httpOnly: true,
             maxAge: 7 * 24 * 60 * 60 * 1000,
             sameSite: "strict"
         })
-        return res.status(200).json({ message: 'Login successful', token });
-        // const userSafe = user.toObject();
-        // delete userSafe.password;
-        // return res.status(200).json(userSafe)
+        return res.status(200).json({ message: 'Login successful', token, user: userSafe });
 
     }
     catch (err) {
@@ -189,7 +189,7 @@ exports.googleAuth = async (req, res) => {
             user = await User.create({
                 Name: Fullname || Email.split('@')[0],
                 Email,
-                mobile,
+                mobile: mobile || null,
                 role: role || 'user',
                 password: null,
                 authProvider: 'google'

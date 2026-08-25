@@ -8,6 +8,8 @@ import { serverUrl } from '../config.js';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { app,auth } from '../../firebase.js';
 import { ClipLoader } from 'react-spinners'
+import { useDispatch } from 'react-redux';
+import { setUserData } from '../redux/UserSlice.js';
 
 export default function Signup() {
    const primarycolor="#ff4f0f"
@@ -25,6 +27,7 @@ export default function Signup() {
     const [mobile,setMobile]=useState('')
     const [error,setError]=useState('')
     const [loading,setLoading]=useState(false)
+    const dispatch=useDispatch() //hook provided by redux
 
    const getErrorMessage = (err) => {
      return err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Something went wrong';
@@ -41,6 +44,7 @@ export default function Signup() {
          { withCredentials: true }
        );
        console.log('Signup success:', result.data);
+       dispatch(setUserData(result.data))
        navigate('/login');
        setLoading(false) //response aa gya loading stop
      } catch (err) {
@@ -62,12 +66,14 @@ export default function Signup() {
     console.log(result);
     try{
       
+      //data ko hum as a object mai le rhe hai 
        const {data} = await axios.post(
          `${serverUrl}/api/auth/google-auth`,
          { Fullname:result.user.displayName, Email:result.user.email,mobile,role },
          { withCredentials: true }
        );  
        console.log(data);
+         dispatch(setUserData(data))
        setError(' ')
     }catch(err){
        const message = getErrorMessage(err);
@@ -126,8 +132,8 @@ export default function Signup() {
       <div className="mb-4">
         <label htmlFor="password" className='block text-gray-700 font-bold mb-2'>Password</label>
         <div className='relative'>
-        <input type={showPassword?'text' : 'password'} value={password} onChange={(e)=>setPassword(e.target.value)} id="password" placeholder='Enter your Password' className='w-full px-3 py-2 border rounded-lg'  style={{border:`10px solid ${bordercolor} `}} />
-       <button className='absolute right-3 top-3 py-2 px-1 cursor-pointer' onClick={()=>setshowPassword((prev)=>!prev)}>{!showPassword?<FaEye/> : <FaEyeSlash/>} </button>
+        <input type={showPassword?'text' : 'password'} value={password} onChange={(e)=>setPassword(e.target.value)} id="password" placeholder='Enter your Password' className='w-full rounded-lg border border-gray-300 px-3 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-orange-500' />
+       <button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} className='absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-gray-600 hover:bg-orange-50 hover:text-[#ff4d2d]' onClick={()=>setshowPassword((prev)=>!prev)}>{!showPassword?<FaEye/> : <FaEyeSlash/>} </button>
         </div>
        
       </div>

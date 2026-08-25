@@ -9,6 +9,8 @@ const userRouter = require('./routes/userRoutes')
 const dotenv=require('dotenv');
 dotenv.config({ path: path.join(__dirname, '.env') });
 const { connectDb } = require('./config/db');
+const shopRouter = require('./routes/shopRoutes');
+const itemRouter = require('./routes/itemsRoutes');
 
 const App=express(); //express ke andr jitne bhi function hai vo sbhi app mai aa gye
 // const port = Number(process.env.PORT || process.env.port || 8000);
@@ -27,7 +29,9 @@ App.use(cookieParser())
 
 App.use('/api/auth',authrouter)
 App.use('/api/user',userRouter)
-
+App.use('/api/shop',shopRouter)
+App.use('/api/item',itemRouter)
+ 
 App.get('/',(req,res)=>{
     res.send('<h1> hello home KD page </h1>')
 })

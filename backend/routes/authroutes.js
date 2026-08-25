@@ -11,9 +11,9 @@ so in authoutes :
 authcontroller is like an object whose key are function name and value is function defination
 therefore we use like  :- authcontroller.logout
 */
-authrouter.post('/login',authcontroller.postlogin);
-authrouter.post('/logout',authcontroller.logout);
 authrouter.post('/signup',authcontroller.postsignup);
+authrouter.post('/login',authcontroller.postlogin);
+authrouter.get('/logout',authcontroller.logout);
 
 
 authrouter.post('/send-otp',authcontroller.sendOtp);
