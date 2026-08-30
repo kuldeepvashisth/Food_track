@@ -18,7 +18,7 @@ function FoodCard({ data }) {
                     (<FaStar className='text-yellow-500 text-lg' />) :
                     (<CiStar className='text-yellow-500 text-lg' />)
             )
-
+     
         }
         return stars;
     }

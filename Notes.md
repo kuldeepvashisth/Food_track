@@ -270,3 +270,248 @@ Event handlers (jaise button click) ke liye useEffect ki zaroorat nahi — wo di
 English grammar note: "for what useEffect is used" — thoda unnatural word order hai. Better: "What is useEffect used for" ya "For what purpose is useEffect used". Tumhara original version listener ko samajh to aayega, but interview mein "What is useEffect used for, and when should we use it?" zyada natural sunega.
 
 -->
+
+
+*****--REDUX__*****
+
+<!-- 
+    configureStore() ==> Builds the library
+    Provider: Gives everyone the library's access
+    useSelector():  allow us to read a data
+    useDispatch():allow us to write/or to change the data
+
+ -->
+<!-- 
+ What happens when you write
+dispatch(setUserData(user));
+
+Let's expand it.
+
+Step 1
+
+JavaScript executes
+
+setUserData(user)
+
+This is the action creator.
+
+It returns:
+
+{
+    type: "user/setUserData",
+    payload: user
+}
+Step 2
+
+Now it becomes:
+
+dispatch({
+    type: "user/setUserData",
+    payload: user
+});
+Step 3
+
+Redux receives the action.
+
+It looks at
+
+type = "user/setUserData"
+
+and says:
+
+"I know which reducer to call."
+
+Step 4
+
+Redux calls your reducer:
+
+setUserData(state, action)
+
+Now this different function runs:
+
+state.userData = action.payload;
+
+Now the state updates.
+
+The biggest confusion
+
+When you write
+
+dispatch(setUserData(user));
+
+it looks like the same setUserData is doing everything.
+
+But internally:
+
+dispatch(
+    Action Creator
+)
+        │
+        ▼
+Creates Action Object
+        │
+        ▼
+Redux
+        │
+        ▼
+Calls Reducer Function
+        │
+        ▼
+Updates State -->
+
+Q. why do we export const { setUserData } = userSlice.actions;
+const userSlice = createSlice({...});
+
+userSlice is approximately like this:
+
+const userSlice = {
+    name: "user",
+
+    reducer: function(){...},
+
+    actions: {
+        setUserData: function(payload){
+            // returns an action object
+        }
+    }
+}
+
+It has an actions property.
+
+What is inside userSlice.actions?
+
+Ans-:reducers: {
+    setUserData(state, action) {
+        ...
+    }
+}
+
+Redux Toolkit automatically creates an action creator.
+
+So internally,
+
+userSlice.actions
+
+looks like
+
+{
+    setUserData: function(payload){
+        return {
+            type: "user/setUserData",
+            payload
+        }
+    }
+}
+Why do we export it?
+
+Suppose in Login.jsx you want to update the user.
+
+You'll write
+
+dispatch(setUserData(user));
+
+Where did setUserData come from?
+
+From
+
+userSlice.actions
+
+If you don't export it,
+
+dispatch(setUserData(user)); will give ReferenceError
+ 
+because Login.jsx doesn't know what setUserData is. So we export it.
+
+Why .actions?
+
+Because userSlice contains many things.
+ 
+userSlice
+│
+├── reducer
+├── actions
+├── name
+└── ...
+
+
+You only want setUserData which lives inside userSlice.actions
+
+
+*Dispatcher returns the object action to redux
+Redux checks the action type "user/setUserData"
+and thinks: "This action belongs to the user slice. I know which reducer should handle this."
+
+Step 4: Redux calls the reducer
+
+So this line executes: leyt action.payload is "kuldeep"
+state.userData = "Kuldeep";
+The store becomes:
+{
+    userData: "Kuldeep"
+}
+react re-renders it;
+
+
+# Explain in simple words why can't we use useState and handleIncrease/handleDecrease for cart item quantity. Why do we need a reducer for it, whereas we didn't create a reducer for the FoodCard?”
+
+Ans:-In FoodCard, quantity is only needed by that FoodCard.That's enough because only this FoodCard cares about that 2 or 3.
+
+
+Now suppose you added Samosa to the cart.
+
+Its quantity is no longer just a FoodCard's temporary selection. It is part of your actual cart.
+
+Redux cart
+Samosa → quantity: 2
+
+That same cart data may be needed by:
+
+CartItemCard
+CartPage
+Navbar
+Checkout
+Total price
+
+If you use useState inside CartItemCard:
+
+const [quantity, setQuantity] = useState(2);
+
+and increase it:
+
+setQuantity(3);
+
+only CartItemCard knows that quantity became 3.
+
+Redux still says:
+
+Samosa → quantity: 2
+
+So you get:
+
+CartItemCard → 3
+Redux        → 2
+
+Two different truths. That's the problem.
+
+So why reducer?
+
+The reducer changes the actual cart quantity stored in Redux:
+
+CartItemCard
+     ↓
+handleIncrease()
+     ↓
+dispatch(increaseQuantity())
+     ↓
+Reducer
+     ↓
+Redux cart quantity = 3
+     ↓
+All components get 3
+Remember this
+
+FoodCard:
+quantity = temporary selection → useState is enough.
+
+Cart:
+quantity = actual shared cart data → Redux reducer updates it.
