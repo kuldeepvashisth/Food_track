@@ -1,6 +1,5 @@
 import { createSlice, current } from "@reduxjs/toolkit";
 
-
 const mapSlice = createSlice({
     name:"user",
   initialState:{
