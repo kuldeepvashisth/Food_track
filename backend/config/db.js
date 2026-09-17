@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const connectDb = async () => {
     try {
@@ -16,5 +16,4 @@ const connectDb = async () => {
     }
 };
 
-exports.connectDb = connectDb;
-// while module.exports:function ,so import it directly without {}
+export { connectDb };

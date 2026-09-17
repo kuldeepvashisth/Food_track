@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const shopSchema = new mongoose.Schema({
     name: {
@@ -32,7 +32,7 @@ const shopSchema = new mongoose.Schema({
     }]
 }, { timestamps: true });
 
-module.exports = mongoose.model('Shop', shopSchema);
+export default mongoose.model('Shop', shopSchema);
 
 /*
 1.Frontend se img lenge

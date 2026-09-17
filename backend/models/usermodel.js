@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
     Name: {
@@ -42,10 +42,22 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: null,
     },
-    
+    location: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number],
+            default: undefined
+        }
+    }
+
 }, { timestamps: true })
 
-module.exports = mongoose.model('User', userSchema)
+userSchema.index({location:'2dsphere'})
+export default mongoose.model('User', userSchema);
 /*
 User :-Model Name
 userSchema:-create above model using this schema

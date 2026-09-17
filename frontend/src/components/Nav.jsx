@@ -52,7 +52,7 @@ function Nav() {
     )}
     <div className='flex items-center gap-3'>
       {isOwner && myshopData && <button onClick={() => navigate('/add-item')} className='hidden items-center gap-2 rounded-xl bg-[#ff4d2d]/10 px-3 py-2 text-sm font-semibold text-[#ff4d2d] md:flex'><FaPlus /> Add Food Item</button>}
-      {isOwner && <button className='hidden items-center gap-2 rounded-xl bg-[#ff4d2d]/10 px-3 py-2 text-sm font-semibold text-[#ff4d2d] md:flex'><IoReceipt /> My Orders</button>}
+      {isOwner && <button className='hidden items-center gap-2 rounded-xl bg-[#ff4d2d]/10 px-3 py-2 text-sm font-semibold text-[#ff4d2d] md:flex' onClick={() => navigate('/my-orders')}><IoReceipt /> My Orders</button>}
       {isUser && <div>
         <button className='relative top-10 right-14 text-[#ff4d2d]'onClick={()=>navigate('/cart')}>
         {/* Cart icon*/}
@@ -61,7 +61,7 @@ function Nav() {
           {cartItems.length}
         </span>
       </button>
-      <button className='relative bottom-3 hidden rounded-xl bg-[#ff4d2d]/10 px-4 py-4 text-sm font-semibold text-[#ff4d2d] md:block'>My Orders</button>
+      <button className='relative bottom-3 hidden rounded-xl bg-[#ff4d2d]/10 px-4 py-4 text-sm font-semibold text-[#ff4d2d] md:block' onClick={()=>navigate("/my-orders")}>My Orders</button>
       </div>}
       <button onClick={() => setShowInfo((value) => !value)} className='flex h-10 w-10 items-center justify-center rounded-full bg-[#ff4d2d] font-semibold text-white shadow-md'>{userData?.Name?.slice(0, 1)?.toUpperCase() || ''}</button>
     </div>

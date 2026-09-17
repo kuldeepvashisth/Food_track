@@ -1,7 +1,7 @@
-const express = require('express');
-const { createAndEditShop, getMyShop, getNearbyShops } = require('../controller/shopController');
-const isAuth = require('../middleware/isAuth');
-const upload = require('../middleware/multer');
+import express from 'express';
+import { createAndEditShop, getMyShop, getNearbyShops } from '../controller/shopController.js';
+import isAuth from '../middleware/isAuth.js';
+import upload from '../middleware/multer.js';
 
 const shopRouter = express.Router();
 
@@ -9,4 +9,4 @@ shopRouter.post("/create-edit-shop", isAuth, upload.single("image"), createAndEd
 shopRouter.get("/get-my", isAuth, getMyShop);
 shopRouter.get("/get-nearby-shop/:city", isAuth, getNearbyShops);
 
-module.exports = shopRouter;
+export default shopRouter;

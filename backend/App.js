@@ -1,16 +1,19 @@
-const path = require('path');
-const express=require('express')
-const cookieParser=require('cookie-parser')
-const cors=require('cors');
-const { authrouter } = require('./routes/authroutes')
-const userRouter = require('./routes/userRoutes')
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { authrouter } from './routes/authroutes.js';
+import userRouter from './routes/userRoutes.js';
+import orderRouter from './routes/OrderRoutes.js';
+import { connectDb } from './config/db.js';
+import shopRouter from './routes/shopRoutes.js';
+import itemRouter from './routes/itemsRoutes.js';
 
-
-const dotenv=require('dotenv');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '.env') });
-const { connectDb } = require('./config/db');
-const shopRouter = require('./routes/shopRoutes');
-const itemRouter = require('./routes/itemsRoutes');
 
 const App=express(); //express ke andr jitne bhi function hai vo sbhi app mai aa gye
 // const port = Number(process.env.PORT || process.env.port || 8000);
@@ -31,6 +34,7 @@ App.use('/api/auth',authrouter)
 App.use('/api/user',userRouter)
 App.use('/api/shop',shopRouter)
 App.use('/api/item',itemRouter)
+App.use('/api/order',orderRouter)
  
 App.get('/',(req,res)=>{
     res.send('<h1> hello home KD page </h1>')

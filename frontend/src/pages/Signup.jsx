@@ -44,7 +44,7 @@ export default function Signup() {
          { withCredentials: true }
        );
        console.log('Signup success:', result.data);
-       dispatch(setUserData(result.data))
+      dispatch(setUserData(result.data.user || result.data))
        navigate('/login');
        setLoading(false) //response aa gya loading stop
      } catch (err) {
@@ -73,7 +73,8 @@ export default function Signup() {
          { withCredentials: true }
        );  
        console.log(data);
-         dispatch(setUserData(data))
+       dispatch(setUserData(data.user || data))
+       navigate('/');
        setError(' ')
     }catch(err){
        const message = getErrorMessage(err);

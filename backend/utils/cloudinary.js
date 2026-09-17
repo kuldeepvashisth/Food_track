@@ -1,7 +1,7 @@
-const cloudinary = require('cloudinary').v2;
-const dotenv = require('dotenv');
+import { v2 as cloudinary } from 'cloudinary';
+import dotenv from 'dotenv';
 dotenv.config();
-const fs = require('fs');
+import fs from 'node:fs';
 
 const uploadOnCloudinary = async (file) => {
     cloudinary.config({
@@ -21,4 +21,4 @@ const uploadOnCloudinary = async (file) => {
     }
 };
 
-module.exports = uploadOnCloudinary;
+export default uploadOnCloudinary;

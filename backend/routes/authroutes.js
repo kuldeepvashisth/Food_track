@@ -1,6 +1,7 @@
-const express=require('express')
-const authrouter=express.Router();
-const authcontroller=require('../controller/authcontroller')
+import express from 'express';
+import * as authcontroller from '../controller/authcontroller.js';
+
+const authrouter = express.Router();
 
 //Here, require authcontroller() returns whatever the controller file exports.
 /* whenever we want to export just one function we use mdule.exports and for multiple we use 
@@ -23,6 +24,6 @@ authrouter.post('/reset-password',authcontroller.resetPassword);
 authrouter.post('/google-auth',authcontroller.googleAuth);
 
 
-exports.authrouter=authrouter
+export { authrouter };
 
 

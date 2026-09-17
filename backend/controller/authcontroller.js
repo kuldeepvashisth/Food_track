@@ -1,9 +1,9 @@
-const bcrypt = require('bcryptjs');
-const generateToken = require('../utils/token');
-const User = require('../models/usermodel');
-const { sendOtpMail } = require('../utils/sendmail');
+import bcrypt from 'bcryptjs';
+import generateToken from '../utils/token.js';
+import User from '../models/usermodel.js';
+import { sendOtpMail } from '../utils/sendmail.js';
 
-exports.postsignup = async (req, res) => {
+export const postsignup = async (req, res) => {
     try {
         // accept multiple field name variants from frontend
         const { Fullname, Email, password, mobile, role } = req.body;
@@ -59,7 +59,7 @@ exports.postsignup = async (req, res) => {
 }
 
 
-exports.postlogin = async (req, res) => {
+export const postlogin = async (req, res) => {
     try {
         const { Email, password } = req.body;
         const userEmail = Email;
@@ -100,7 +100,7 @@ exports.postlogin = async (req, res) => {
 
 }
 
-exports.logout = async (req, res) => {
+export const logout = async (req, res) => {
     try {
         res.clearCookie('token');
         return res.status(201).json('logout successfully')
@@ -112,7 +112,7 @@ exports.logout = async (req, res) => {
 }
 
 
-exports.sendOtp = async (req, res) => {
+export const sendOtp = async (req, res) => {
     try {
         const Email = (req.body.Email || '').trim().toLowerCase();
         const user = await User.findOne({ Email });
@@ -133,7 +133,7 @@ exports.sendOtp = async (req, res) => {
     }
 }
 
-exports.verifyOtp = async (req, res) => {
+export const verifyOtp = async (req, res) => {
     try {
         const Email = (req.body.Email || '').trim().toLowerCase();
         const { otp } = req.body;
@@ -157,7 +157,7 @@ exports.verifyOtp = async (req, res) => {
 }
 
 
-exports.resetPassword= async (req, res) => {
+export const resetPassword = async (req, res) => {
     try{
         const Email = (req.body.Email || '').trim().toLowerCase();
         const { newPassword } = req.body;
@@ -177,7 +177,7 @@ exports.resetPassword= async (req, res) => {
     }
 }
 
-exports.googleAuth = async (req, res) => {
+export const googleAuth = async (req, res) => {
     try {
         const { Fullname, Email, mobile, role } = req.body;
         if (!Email) {

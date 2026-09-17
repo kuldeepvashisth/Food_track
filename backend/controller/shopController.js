@@ -1,5 +1,5 @@
-const Shop = require("../models/shop_models");
-const uploadOnCloudinary = require("../utils/cloudinary");
+import Shop from '../models/shop_models.js';
+import uploadOnCloudinary from '../utils/cloudinary.js';
 
 const createAndEditShop = async (req, res) => {
     try {
@@ -79,5 +79,5 @@ const getNearbyShops = async (req, res) => {
     }
 };
 
-module.exports = { createAndEditShop, getMyShop, getNearbyShops };
+export { createAndEditShop, getMyShop, getNearbyShops };
 

@@ -1,6 +1,6 @@
-const uploadOnCloudinary = require("../utils/cloudinary");
-const Shop = require("../models/shop_models");
-const Item = require('../models/items_model');
+import uploadOnCloudinary from '../utils/cloudinary.js';
+import Shop from '../models/shop_models.js';
+import Item from '../models/items_model.js';
 
 const getItemById = async (req, res) => {
     try {
@@ -201,4 +201,4 @@ const deleteItem = async (req, res) => {
         }
 }
 
-module.exports = { addItem, editItem, getItemById, deleteItem, getItemByCity };
+export { addItem, editItem, getItemById, deleteItem, getItemByCity };

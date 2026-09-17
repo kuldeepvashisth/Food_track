@@ -1,5 +1,5 @@
 
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 
 const shopOrderItemsSchema = new mongoose.Schema({
@@ -7,10 +7,11 @@ const shopOrderItemsSchema = new mongoose.Schema({
         type:mongoose.Schema.Types.ObjectId,
         ref:"Item" //Shop Model se refrence lena hai uska
     },
+    name:String,
     price:Number,
     quantity:{
         type:Number,
-        require:true
+      required:true
     }
 },{timestamps:true})
 
@@ -24,7 +25,22 @@ const shopOrderSchema = new mongoose.Schema({
         ref:"User"
     },
     subTotal:Number,
-    shopOrderItems:[shopOrderItemsSchema]
+    shopOrderItems:[shopOrderItemsSchema],
+    status:{
+      type:String,
+      enum:['pending', 'processing', 'out for delivery', 'delivered'],
+      default:'pending'
+    },
+    assignment:{
+      type:mongoose.Schema.Types.ObjectId,
+      ref:"DeliveryAssignment",
+      default:null
+    },
+    assignedDeliveryBoy:{
+       type:mongoose.Schema.Types.ObjectId,
+      ref:"User",
+      default:null
+    }
 
 },{timestamps:true})
 
@@ -42,10 +58,15 @@ const orderSchema = new mongoose.Schema({
     required: true
   },
   deliveryAddress: {
-    text: String,
-    required: true,
-    latitude: Number,
-    longitude: Number
+    type: {
+      text: {
+        type: String,
+        required: true
+      },
+      latitude: Number,
+      longitude: Number
+    },
+    required: true
 },
 
     // kisi ne 2 shop se order kiya to dono ka alag alag order hoga
@@ -58,11 +79,17 @@ const orderSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'processing', 'shipped', 'delivered'],
     default: 'pending'
-  }
+  },
+  assignment:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"DeliveryAssignment",
+    default:null
+  },
+  shopOrders:[shopOrderSchema]
 }, {
   timestamps: true
 });
 
 
 
-module.exports = mongoose.model('Order', orderSchema);
+export default mongoose.model('Order', orderSchema);
