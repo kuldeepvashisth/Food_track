@@ -49,11 +49,16 @@ export const getMyOrders = async (req, res) => {
         } else if (user.role === 'deliveryBoy') {
             const assignments = await DeliveryAssignment.find({
                 $or: [{ broadcastedTo: req.userId }, { assignedTo: req.userId }]
-            }).select('order');
+            }).select('order');//assignment mai se sirf order wali field lo
+           // --v
+            //Sirf wahi orders lao jinki IDs current delivery boy ke assignments mein mili hain.
+           //Isliye delivery boy ko database ke saare orders nahi milt
             query = { _id: { $in: assignments.map(assignment => assignment.order) } };
+            //ye query jb orders mai pass hogi to only assigned orders hi milegnge
         } else {
             query = { user: req.userId };
         }
+        // ye orders user role ke accoriding honge bcoz we pass query based on role
         const orders = await Order_model.find(query).sort({ createdAt: -1 })
             .populate({ path: 'shopOrders.shopName', select: 'name' })
             .populate({ path: 'shopOrders.owner', select: 'Name Email' })
@@ -65,6 +70,8 @@ export const getMyOrders = async (req, res) => {
         if (user.role !== 'owner') return res.status(200).json(orders);
         const ownerOrders = orders.map(order => {
             const ownerOrder = order.toObject();
+            // Agar customer ne Shop A aur Shop B dono se order kiya hai,
+            //  to Shop A ke owner ko Shop B ka shop order nahi dikhega.
             ownerOrder.shopOrders = ownerOrder.shopOrders.filter(shopOrder => String(shopOrder.owner?._id || shopOrder.owner) === String(req.userId));
             return ownerOrder;
         });
@@ -85,17 +92,29 @@ export const changeOrderStatus = async (req, res) => {
 
         const order = await Order_model.findOne({
             _id: orderId,
-            'shopOrders._id': shopId,
+            'shopOrders._id': shopId, //order model ke andr shopOrders:[shopOrderSchema] array hai usme 
+            // shopOrders ke andr each array ki ek id hai bcoz each array itself a schema ,to us id se match kro current shop ko
+            // and shopOrders ke each array mai hi owner attribute bhi hai
             'shopOrders.owner': req.userId
         });
         if (!order) return res.status(404).json({ message: 'Order not found' });
         const shopOrder = order.shopOrders.id(shopId);
-
+        //vo element meand vo order mil gya jiska status change hua hai ab us order mai 
+        //se shopOrder nikalo  jis order ki id change hui hai shopId ke base pr
         let availableBoys = [];
         let deliveryboyPayload = [];
 
         if (status === 'out for delivery' && !shopOrder.assignment) {
             const { latitude, longitude } = order.deliveryAddress;
+            /*
+            Is query ka meaning:
+  
+  Sirf deliveryBoy role wale users search karo.
+  Customer ke delivery location ke around search karo.
+  Maximum distance 5000 meters, yani 5 km.
+  Sirf name, mobile aur location data lao.
+            */
+
             const nearbyDeliveryBoys = await User.find({
                 role: 'deliveryBoy',
                 location: {
@@ -109,22 +128,54 @@ export const changeOrderStatus = async (req, res) => {
             const nearbyIds = nearbyDeliveryBoys.map(person => person._id);
             const busyIds = await DeliveryAssignment.find({
                 assignedTo: { $in: nearbyIds },
-                status: 'assigned'
+                status: 'assigned'    //Yahan check hota hai ki nearby delivery boys mein se kaun already kisi order par assigned hai.
             }).select('assignedTo');  //measn of select here ??
             const busyIdsSet = new Set(busyIds.map(id => String(id.assignedTo)));
             availableBoys = nearbyDeliveryBoys.filter(person => !busyIdsSet.has(String(person._id)));
+            /*
+            CandidateId:Ye sirf available boys ki IDs hain:
+            #In IDs ko assignment mein save kiya jaata hai:
+            #broadcastedTo: candidateIds
+            availableBoys:nearby+free
+            
+            *availableBoys = abhi available boys ki temporary details
+            candidateIds = un boys ki IDs
+            assignment = order aur boys ke relation ka permanent record
+            
+            Assignment ek permanent database record hai jo yaad rakhta hai:
+                Ye order kin delivery boys ko dikhana hai? 
+            Order kis shop ka hai?
+            Kaunsa shopOrder hai?
+            Assignment ka status kya hai?
+            Kaunsa boy finally assigned hua?
 
+            
+            */
             const candidateIds = availableBoys.map(person => person._id);
             if (candidateIds.length > 0) {
                 const deliveryAssignment = await DeliveryAssignment.create({
                     order: order._id,
                     shop: shopOrder.shopName,
                     shopOrderId: shopOrder._id,
-                    broadcastedTo: candidateIds,
+                    broadcastedTo: candidateIds, //Ye delivery request in delivery boys ko show karni hai.
                     status: 'broadcasted',
 
                 });
+
+                /*
+                Assignment create hone ke baad uski ID shop order ke andar save hoti hai.
+                Ab shop order kuch aisa ho jaata hai:
+
+                {
+                shopName: shopId,
+                status: "out for delivery",
+                assignment: assignmentId
+             }
+
+
+                */
                 shopOrder.assignment = deliveryAssignment._id;
+
                 shopOrder.assignedDeliveryBoy = deliveryAssignment.assignedTo;
 
                 deliveryboyPayload = availableBoys.map((boy) => ({
@@ -157,28 +208,48 @@ export const changeOrderStatus = async (req, res) => {
     }
 };
 
-export const getDeliveryBoyAssignment=async (req,res)=>{
-    try{
-        const deliveryBoyId=req.userId
-        const assognments=await DeliveryAssignment.find({
-            broadcastedTo:deliveryBoyId,
-            status:"broadcasted"
-        })
-        .populate("order")
-        .populate("shop")
 
-        const formatted=assignment.map(a=>({
-            assignmentId:a._id,
-            orderId:a.order._id,
-            shopName:a.shop.name,
-            deliveryAddress:a.order.deliveryAddress,
-            items:a.order.shopOrders.find(so=>so._id.equals(a.shopOrderid)).shopOrderItems||[],
-            subTotal:a.order.shopOrders.find(so=>so._id.equals(a.shopOrderid))?.subtotal
+//whny do we need getDeliveryBoyAssignment
+// Agar aap frontend mein directly assignments se cards render karna chahte ho, tab ye endpoint use kar sakte ho
+export const getDeliveryBoyAssignment = async (req, res) => {
+    try {
+        const deliveryBoyId = req.userId
+        const assignment = await DeliveryAssignment.find({
+            broadcastedTo: deliveryBoyId,
+            status: "broadcasted"
+        })
+            /*
+                Assignment ke saath order aur shop lana
+                Assignment mein normally sirf IDs saved hoti hain:
+                order: orderId
+                shop: shopId
+    
+                *populate() in IDs ko actual documents mein convert karta hai.
+                Iske baad:
+                {
+                a.order
+                mein complete order data hota hai.
+                simlarly a.shop mai complete shop ka dtaa
+                means after populate we can access shop name as a.shop.name
+                }
+                
+            */
+
+            .populate("order")
+            .populate("shop")
+
+        const formatted = assignment.map(a => ({
+            assignmentId: a._id,
+            orderId: a.order._id,
+            shopName: a.shop.name,
+            deliveryAddress: a.order.deliveryAddress,
+            items: a.order.shopOrders.find(so => so._id.equals(shopOrderId)).shopOrderItems || [],
+            subTotal: a.order.shopOrders.find(so => so._id.equals(shopOrderId))?.subTotal
         }))
-        return res.status(200).json(formtted)
+        return res.status(200).json(foramtted)
     }
 
-    catch(err){
-        return res.status(500).json({message:"get Assignment Order error"})
+    catch (err) {
+        return res.status(500).json({ message: "get Assignment Order error" })
     }
 }

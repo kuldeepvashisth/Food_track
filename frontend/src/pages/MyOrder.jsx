@@ -33,7 +33,8 @@ function MyOrder() {
           <div className='mt-8 rounded-xl border border-orange-100 bg-white px-6 py-12 text-center shadow-sm'>
             <h2 className='text-lg font-semibold text-gray-800'>No orders yet</h2>
             <p className='mt-2 text-sm text-gray-500'>Your completed orders will appear here.</p>
-            <button type='button' onClick={() => navigate('/')} className='mt-5 rounded-md bg-[#ff4d2d] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#e74327]'>
+            <button type='button' onClick={() => navigate('/')} className='mt-5 rounded-md bg-[#ff4d2d] px-5 py-2 
+            text-sm font-semibold text-white transition hover:bg-[#e74327]'>
               Browse food
             </button>
           </div>
