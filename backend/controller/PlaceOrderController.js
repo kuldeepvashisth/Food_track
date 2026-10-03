@@ -48,7 +48,11 @@ export const getMyOrders = async (req, res) => {
             query = { 'shopOrders.owner': req.userId };
         } else if (user.role === 'deliveryBoy') {
             const assignments = await DeliveryAssignment.find({
-                $or: [{ broadcastedTo: req.userId }, { assignedTo: req.userId }]
+                // The delivery dashboard is a list of offers. Once a partner
+                // accepts one, it changes to "assigned" and must disappear
+                // from this list.
+                broadcastedTo: req.userId,
+                status: 'broadcasted'
             }).select('order');//assignment mai se sirf order wali field lo
            // --v
             //Sirf wahi orders lao jinki IDs current delivery boy ke assignments mein mili hain.
@@ -238,18 +242,84 @@ export const getDeliveryBoyAssignment = async (req, res) => {
             .populate("order")
             .populate("shop")
 
-        const formatted = assignment.map(a => ({
-            assignmentId: a._id,
-            orderId: a.order._id,
-            shopName: a.shop.name,
-            deliveryAddress: a.order.deliveryAddress,
-            items: a.order.shopOrders.find(so => so._id.equals(shopOrderId)).shopOrderItems || [],
-            subTotal: a.order.shopOrders.find(so => so._id.equals(shopOrderId))?.subTotal
-        }))
-        return res.status(200).json(foramtted)
+        const formatted = assignment.flatMap(a => {
+            // An old assignment can outlive a deleted order/shop document.
+            // Skip it instead of failing the whole delivery dashboard request.
+            if (!a.order) return [];
+            const shopOrder = a.order.shopOrders.find(so => so._id.equals(a.shopOrderId));
+            return [{
+                assignmentId: a._id,
+                orderId: a.order._id,
+                shopName: a.shop?.name || 'Shop unavailable',
+                deliveryAddress: a.order.deliveryAddress,
+                items: shopOrder?.shopOrderItems || [],
+                subTotal: shopOrder?.subTotal || 0
+            }];
+        });
+        return res.status(200).json(formatted);
     }
 
     catch (err) {
         return res.status(500).json({ message: "get Assignment Order error" })
     }
 }
+
+export const acceptOrder = async (req, res) => {
+    try {
+        const { assignmentId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
+            return res.status(400).json({ message: 'Invalid assignment id' });
+        }
+
+        const alreadyAssigned = await DeliveryAssignment.findOne({
+            assignedTo: req.userId,
+            status: 'assigned'
+        });
+
+        if (alreadyAssigned) {
+            return res.status(400).json({
+                message: "You are already assigned to another order"
+            });
+        }
+
+        // The conditional update prevents two delivery partners accepting the
+        // same broadcast at the same time.
+        const assignment = await DeliveryAssignment.findOneAndUpdate(
+            { _id: assignmentId, broadcastedTo: req.userId, status: 'broadcasted' },
+            { assignedTo: req.userId, status: 'assigned', acceptedAt: new Date() },
+            { new: true }
+        );
+
+        if (!assignment) {
+            return res.status(409).json({ message: 'This delivery request is no longer available' });
+        }
+
+        const order = await Order_model.findById(assignment.order);
+
+        if (!order) {
+            return res.status(400).json({
+                message: "order not found"
+            });
+        }
+
+        const shopOrder = order.shopOrders.id(assignment.shopOrderId);
+
+        if (!shopOrder) {
+            return res.status(404).json({ message: 'Shop order not found' });
+        }
+
+        shopOrder.assignedDeliveryBoy = req.userId;
+
+        await order.save();
+
+        return res.status(200).json({
+            message: "order accepted"
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: `accept order error ${error}`
+        });
+    }
+};

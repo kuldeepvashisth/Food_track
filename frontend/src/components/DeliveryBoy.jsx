@@ -2,7 +2,6 @@ import React from 'react'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { FaLocationDot, FaPhone, FaTruck } from 'react-icons/fa6'
-import { useEffect } from 'react'
 import axios from 'axios';
 import { serverUrl } from '../config.js'
 function DeliveryBoy() {
@@ -12,21 +11,21 @@ function DeliveryBoy() {
 
   //  const { userData } = useSelector(state => state.user)
 
-    const getAssignments = async () => {
-        try {
-            const result = await axios.get(
-                `${serverUrl}/api/order/get-assignments`,
-                { withCredentials: true }
-            )
-            console.log(result.data)
-        } catch (error) {
-            console.log(error)
-        }
-    }
+    const acceptOrder = async (assignmentId) => {
+    try {
+        const result = await axios.post(
+            `${serverUrl}/api/order/accept-order/${assignmentId}`,
+            {},
+            { withCredentials: true }
+        );
 
-    useEffect(() => {
-        getAssignments()
-    }, [userData])
+        console.log(result.data);
+        window.location.reload();
+    } catch (error) {
+        console.log(error);
+        alert(error.response?.data?.message || 'Unable to accept this order. Please try again.');
+    }
+};
 
   return (
     <main className='min-h-screen bg-[#fff9f6] pb-12 pt-28'>
@@ -60,6 +59,9 @@ function DeliveryBoy() {
               <p className='text-sm font-bold text-[#ff4d2d]'>₹{Number(shopOrder?.subTotal || 0).toFixed(2)}</p></div>
               <p className='mt-4 flex gap-2 text-sm text-slate-600'><FaLocationDot className='mt-1 shrink-0 text-[#ff4d2d]' />{order.deliveryAddress?.text || 'Address unavailable'}</p>
               <p className='mt-3 flex gap-2 text-sm text-slate-600'><FaPhone className='mt-1 shrink-0 text-[#ff4d2d]' />{order.user?.mobile || 'Customer phone unavailable'}</p>
+            <button onClick={() => acceptOrder(shopOrder?.assignment?._id || shopOrder?.assignment)} disabled={!shopOrder?.assignment} className='mt-4 rounded-lg bg-[#ff4d2d] px-4 py-2 text-sm font-bold text-white hover:bg-[#e64529] disabled:cursor-not-allowed disabled:opacity-50'>
+              Accept
+            </button>
             </article>
           })}</div> 
           :
