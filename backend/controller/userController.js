@@ -22,8 +22,15 @@ export const updateUserLocation = async (req, res) => {
         const { latitude, longitude } = req.body;
         const userId = req.userId;
 
-        if (latitude == null || longitude == null) {
-            return res.status(400).json({ message: 'Latitude and longitude are required' });
+        if (
+            !Number.isFinite(latitude) ||
+            !Number.isFinite(longitude) ||
+            latitude < -90 ||
+            latitude > 90 ||
+            longitude < -180 ||
+            longitude > 180
+        ) {
+            return res.status(400).json({ message: 'Valid latitude and longitude are required' });
         }
 
         const user = await User.findByIdAndUpdate(

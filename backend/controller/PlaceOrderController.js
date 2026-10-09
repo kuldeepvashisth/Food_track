@@ -4,6 +4,33 @@ import Shop from '../models/shop_models.js';
 import User from '../models/usermodel.js';
 import mongoose from 'mongoose';
 
+const getBusyDeliveryBoyIds = async (deliveryBoyIds) => {
+    if (deliveryBoyIds.length === 0) return new Set();
+
+    const assignments = await DeliveryAssignment.find({
+        assignedTo: { $in: deliveryBoyIds },
+        status: 'assigned'
+    }).select('assignedTo order shopOrderId').populate('order', '_id shopOrders._id');
+    const activeAssignments = assignments.filter(assignment =>
+        assignment.order &&
+        assignment.order.shopOrders.some(shopOrder => shopOrder._id.equals(assignment.shopOrderId))
+    );
+    const orphanedAssignmentIds = assignments
+        .filter(assignment => !activeAssignments.includes(assignment))
+        .map(assignment => assignment._id);
+
+    if (orphanedAssignmentIds.length > 0) {
+        await DeliveryAssignment.updateMany(
+            { _id: { $in: orphanedAssignmentIds }, status: 'assigned' },
+            { $set: { status: 'completed' } }
+        );
+    }
+
+    return new Set(
+        activeAssignments.map(assignment => String(assignment.assignedTo))
+    );
+};
+
 export const placeOrder = async (req, res) => {
     try {
         const { cartItems, paymentMethod, deliveryAddress, totalAmount } = req.body;
@@ -47,6 +74,7 @@ export const getMyOrders = async (req, res) => {
         if (user.role === 'owner') {
             query = { 'shopOrders.owner': req.userId };
         } else if (user.role === 'deliveryBoy') {
+            await getBusyDeliveryBoyIds([req.userId]);
             const assignments = await DeliveryAssignment.find({
                 // The delivery dashboard is a list of offers. Once a partner
                 // accepts one, it changes to "assigned" and must disappear
@@ -68,7 +96,8 @@ export const getMyOrders = async (req, res) => {
             .populate({ path: 'shopOrders.owner', select: 'Name Email' })
             .populate('user')
             .populate({ path: 'shopOrders.shopOrderItems.item', select: 'name image price' })
-            .populate({ path: 'shopOrders.assignment', populate: { path: 'broadcastedTo', select: 'Name mobile location' } });
+            .populate({ path: 'shopOrders.assignment', populate: { path: 'broadcastedTo', select: 'Name mobile' } })
+            .populate({ path: 'shopOrders.assignedDeliveryBoy', select: 'Name mobile' });
 
         if (user.role === 'deliveryBoy') return res.status(200).json(orders);
         if (user.role !== 'owner') return res.status(200).json(orders);
@@ -130,12 +159,19 @@ export const changeOrderStatus = async (req, res) => {
             }).select('Name mobile location');
 
             const nearbyIds = nearbyDeliveryBoys.map(person => person._id);
-            const busyIds = await DeliveryAssignment.find({
-                assignedTo: { $in: nearbyIds },
-                status: 'assigned'    //Yahan check hota hai ki nearby delivery boys mein se kaun already kisi order par assigned hai.
-            }).select('assignedTo');  //measn of select here ??
-            const busyIdsSet = new Set(busyIds.map(id => String(id.assignedTo)));
+            const busyIdsSet = await getBusyDeliveryBoyIds(nearbyIds);
             availableBoys = nearbyDeliveryBoys.filter(person => !busyIdsSet.has(String(person._id)));
+
+            // Keep nearby partners first, but don't leave an order without a
+            // delivery request just because nobody is within the 5 km radius.
+            if (availableBoys.length === 0) {
+                const allDeliveryBoys = await User.find({ role: 'deliveryBoy' })
+                    .select('Name mobile location');
+                const allDeliveryBoyIds = allDeliveryBoys.map(person => person._id);
+                const allBusyIdsSet = await getBusyDeliveryBoyIds(allDeliveryBoyIds);
+                availableBoys = allDeliveryBoys.filter(person => !allBusyIdsSet.has(String(person._id)));
+            }
+
             /*
             CandidateId:Ye sirf available boys ki IDs hain:
             #In IDs ko assignment mein save kiya jaata hai:
@@ -272,12 +308,8 @@ export const acceptOrder = async (req, res) => {
             return res.status(400).json({ message: 'Invalid assignment id' });
         }
 
-        const alreadyAssigned = await DeliveryAssignment.findOne({
-            assignedTo: req.userId,
-            status: 'assigned'
-        });
-
-        if (alreadyAssigned) {
+        const busyDeliveryBoyIds = await getBusyDeliveryBoyIds([req.userId]);
+        if (busyDeliveryBoyIds.has(String(req.userId))) {
             return res.status(400).json({
                 message: "You are already assigned to another order"
             });
@@ -298,6 +330,10 @@ export const acceptOrder = async (req, res) => {
         const order = await Order_model.findById(assignment.order);
 
         if (!order) {
+            await DeliveryAssignment.updateOne(
+                { _id: assignment._id, status: 'assigned' },
+                { $set: { status: 'completed' } }
+            );
             return res.status(400).json({
                 message: "order not found"
             });
@@ -306,6 +342,10 @@ export const acceptOrder = async (req, res) => {
         const shopOrder = order.shopOrders.id(assignment.shopOrderId);
 
         if (!shopOrder) {
+            await DeliveryAssignment.updateOne(
+                { _id: assignment._id, status: 'assigned' },
+                { $set: { status: 'completed' } }
+            );
             return res.status(404).json({ message: 'Shop order not found' });
         }
 
@@ -321,5 +361,74 @@ export const acceptOrder = async (req, res) => {
         return res.status(500).json({
             message: `accept order error ${error}`
         });
+    }
+};
+
+export const getCurrentOrderForDeliveryBoy = async (req, res) => {
+    try {
+        const deliveryBoyId = req.userId;
+        const assignment = await DeliveryAssignment.findOne({
+            assignedTo: deliveryBoyId,
+            status: 'assigned'
+        })
+            .populate('order')
+            .populate('shop', 'name address city state')
+            .populate('assignedTo', 'Name mobile location')
+            .populate({
+                path: 'order.user',
+                model: 'User',
+                select: 'Name mobile Email location'
+            })
+            .populate({ path: 'order.shopOrders.shopName', select: 'name' })
+            .populate({ path: 'order.shopOrders.shopOrderItems.item', select: 'name image price' });
+
+        if (!assignment) {
+            return res.status(404).json({ message: 'No current order found for this delivery boy' });
+        }
+        if (!assignment.order) {
+            await DeliveryAssignment.updateOne(
+                { _id: assignment._id, status: 'assigned' },
+                { $set: { status: 'completed' } }
+            );
+            return res.status(404).json({ message: 'Order not found for this assignment' });
+        }
+
+        const shopOrder = assignment.order.shopOrders.id(assignment.shopOrderId);
+        if (!shopOrder) {
+            await DeliveryAssignment.updateOne(
+                { _id: assignment._id, status: 'assigned' },
+                { $set: { status: 'completed' } }
+            );
+            return res.status(404).json({ message: 'Shop order not found for this assignment' });
+        }
+
+        const coordinates = assignment.assignedTo?.location?.coordinates;
+        const deliveryBoyLocation = Array.isArray(coordinates) && coordinates.length === 2
+            ? { latitude: coordinates[1], longitude: coordinates[0] }
+            : { latitude: null, longitude: null };
+        const deliveryAddress = assignment.order.deliveryAddress;
+        const customerLocation = {
+            latitude: deliveryAddress?.latitude ?? null,
+            longitude: deliveryAddress?.longitude ?? null,
+            Name: assignment.order.user?.Name || 'Customer',
+            mobile: assignment.order.user?.mobile || 'Phone unavailable',
+            Email: assignment.order.user?.Email || 'Email unavailable'
+        };
+        const customer = await User.findById(
+            assignment.order.user?._id || assignment.order.user
+        ).select('Name mobile Email').lean();
+
+        return res.status(200).json({
+            assignmentId: assignment._id,
+            order: assignment.order,
+            shopOrder,
+            shop: assignment.shop,
+            customer,
+            deliveryAddress,
+            deliveryBoyLocation,
+            customerLocation
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Error fetching current order for delivery boy', error: error.message });
     }
 };

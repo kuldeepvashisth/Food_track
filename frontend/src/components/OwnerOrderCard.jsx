@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import axios from 'axios'
 import { FaLocationDot, FaPhone, FaUser } from 'react-icons/fa6'
 import { MdEmail } from 'react-icons/md'
@@ -7,9 +7,8 @@ import { useDispatch } from 'react-redux'
 import { updatOrderStatus } from '../redux/UserSlice.js'
 
 function OwnerOrderCard({ order }) {
-  const initialAvailableBoys = order?.availableDeliveryBoys || order?.shopOrders?.[0]?.assignment?.broadcastedTo || []
-  const [availableBoys, setAvailableBoys] = useState(initialAvailableBoys)
   const shopOrder = order?.shopOrders?.[0]
+  const availableBoys = order?.availableDeliveryBoys || shopOrder?.assignment?.broadcastedTo || []
   const [status, setStatus] = useState(shopOrder?.status || order?.status || 'pending')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -32,14 +31,13 @@ function OwnerOrderCard({ order }) {
     setIsSaving(true)
 
     try {
-      const response = await axios.post(
+      await axios.post(
         `${serverUrl}/api/order/update-status/${orderId}/${shopId}`,
         { status: status },
         { withCredentials: true }
       )
 
       dispatch(updatOrderStatus({ orderId, shopId, status: nextStatus }))
-      setAvailableBoys(response.data?.availableBoys || [])
     } catch (error) {
       setStatus(previousStatus)
       console.error('Error updating order status:', error)
@@ -107,13 +105,39 @@ function OwnerOrderCard({ order }) {
         </div>
         {/* delivery Boy column */}
         {status === 'out for delivery' &&
-          <div className="mt-3 p-2 border rounded-lg text-sm bg-orange-50 gap-4">
-            <p>Available Delivery Boys:</p>
-            {availableBoys?.length > 0 ? (
-              availableBoys.map((b, index) => (
-                <div key={b._id || b.id || index} className="text-gray-800">{b.fullName || b.Name || 'Delivery boy'}-{b.mobile || 'Phone unavailable'}</div>
-              ))
-            ) : <div>Waiting for delivery boy to accept</div>}
+          <div className='mt-3 rounded-lg border bg-orange-50 p-2 text-sm'>
+            {shopOrder?.assignedDeliveryBoy ? (
+              <div className='flex flex-col gap-1'>
+                <p>Assigned Delivery Boy:</p>
+                <div className='text-gray-800'>
+                  {shopOrder.assignedDeliveryBoy.fullName || shopOrder.assignedDeliveryBoy.Name || 'Delivery boy'}-
+                  {shopOrder.assignedDeliveryBoy.mobile || 'Phone unavailable'}
+                </div>
+              </div>
+            ) : (
+              <div className='flex flex-col gap-1'>
+                <p>Available Delivery Boys:</p>
+                {availableBoys.length > 0 ? (
+                  availableBoys.map((boy, index) => (
+                    <div key={boy._id || boy.id || index} className='text-gray-800'>
+                      {boy.fullName || boy.Name || 'Delivery boy'}-{boy.mobile || 'Phone unavailable'}
+                    </div>
+                  ))
+                ) : (
+                  <div className='flex flex-wrap items-center justify-between gap-2'>
+                    <span>No delivery partner is available yet.</span>
+                    <button
+                      type='button'
+                      onClick={() => handleStatusChange(order._id, shopOrder?._id, 'out for delivery')}
+                      disabled={isSaving || !shopOrder?._id}
+                      className='rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-[#f04a2d] shadow-sm disabled:cursor-not-allowed disabled:opacity-50'
+                    >
+                      Retry delivery request
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>}
         <div className='mt-4 flex items-center justify-between border-t border-gray-200 pt-3'>
           <p className='text-sm font-bold text-gray-800'>Subtotal: ₹{Number(shopOrder?.subTotal || 0).toFixed(2)}</p>

@@ -1,5 +1,21 @@
 import mongoose from 'mongoose';
 
+const locationSchema = new mongoose.Schema({
+    type: {
+        type: String,
+        enum: ['Point'],
+        required: true
+    },
+    coordinates: {
+        type: [Number],
+        required: true,
+        validate: {
+            validator: coordinates => coordinates.length === 2,
+            message: 'Location must contain longitude and latitude'
+        }
+    }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
     Name: {
         type: String,
@@ -42,17 +58,7 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: null,
     },
-    location: {
-        type: {
-            type: String,
-            enum: ['Point'],
-            default: 'Point'
-        },
-        coordinates: {
-            type: [Number],
-            default: undefined
-        }
-    }
+    location: { type: locationSchema, default: undefined }
 
 }, { timestamps: true })
 

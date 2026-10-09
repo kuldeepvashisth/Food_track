@@ -1,31 +1,70 @@
-import React from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { FaLocationDot, FaPhone, FaTruck } from 'react-icons/fa6'
 import axios from 'axios';
 import { serverUrl } from '../config.js'
+
 function DeliveryBoy() {
   const { userData, myOrders } = useSelector((state) => state.user)
   const navigate = useNavigate()
   const orders = Array.isArray(myOrders) ? myOrders : []
+  const [currentOrder, setCurrentOrder] = useState(null)
+  const [currentOrderError, setCurrentOrderError] = useState('')
+  const [acceptingAssignmentId, setAcceptingAssignmentId] = useState(null)
 
-  //  const { userData } = useSelector(state => state.user)
-
-    const acceptOrder = async (assignmentId) => {
+  const getCurrentOrder = useCallback(async () => {
     try {
-        const result = await axios.post(
-            `${serverUrl}/api/order/accept-order/${assignmentId}`,
-            {},
-            { withCredentials: true }
-        );
-
-        console.log(result.data);
-        window.location.reload();
+      const result = await axios.get(
+        `${serverUrl}/api/order/get-current-order`,
+        { withCredentials: true }
+      )
+      setCurrentOrder(result.data)
+      setCurrentOrderError('')
+      return result.data;
     } catch (error) {
-        console.log(error);
-        alert(error.response?.data?.message || 'Unable to accept this order. Please try again.');
+      if (error.response?.status === 404) {
+        setCurrentOrder(null)
+        setCurrentOrderError('')
+        return null
+      }
+      console.error('Error fetching current order:', error)
+      setCurrentOrderError(error.response?.data?.message || 'Unable to load your current delivery.')
+      return null
     }
-};
+  }, [])
+
+  useEffect(() => {
+    if (userData?.role !== 'deliveryBoy') return undefined
+
+    const initialRefresh = window.setTimeout(getCurrentOrder, 0)
+    const refreshInterval = window.setInterval(getCurrentOrder, 5000)
+    return () => {
+      window.clearTimeout(initialRefresh)
+      window.clearInterval(refreshInterval)
+    }
+  }, [getCurrentOrder, userData?.role])
+
+  const acceptOrder = async (assignmentId) => {
+    setAcceptingAssignmentId(assignmentId)
+    try {
+      await axios.post(
+        `${serverUrl}/api/order/accept-order/${assignmentId}`,
+        {},
+        { withCredentials: true }
+      )
+      await getCurrentOrder()
+    } catch (error) {
+      console.error('Error accepting delivery order:', error)
+      alert(error.response?.data?.message || 'Unable to accept this order. Please try again.')
+    } finally {
+      setAcceptingAssignmentId(null)
+    }
+  }
+
+  const shopAddress = currentOrder?.shop
+    ? [currentOrder.shop.address, currentOrder.shop.city, currentOrder.shop.state].filter(Boolean).join(', ')
+    : ''
 
   return (
     <main className='min-h-screen bg-[#fff9f6] pb-12 pt-28'>
@@ -59,8 +98,8 @@ function DeliveryBoy() {
               <p className='text-sm font-bold text-[#ff4d2d]'>₹{Number(shopOrder?.subTotal || 0).toFixed(2)}</p></div>
               <p className='mt-4 flex gap-2 text-sm text-slate-600'><FaLocationDot className='mt-1 shrink-0 text-[#ff4d2d]' />{order.deliveryAddress?.text || 'Address unavailable'}</p>
               <p className='mt-3 flex gap-2 text-sm text-slate-600'><FaPhone className='mt-1 shrink-0 text-[#ff4d2d]' />{order.user?.mobile || 'Customer phone unavailable'}</p>
-            <button onClick={() => acceptOrder(shopOrder?.assignment?._id || shopOrder?.assignment)} disabled={!shopOrder?.assignment} className='mt-4 rounded-lg bg-[#ff4d2d] px-4 py-2 text-sm font-bold text-white hover:bg-[#e64529] disabled:cursor-not-allowed disabled:opacity-50'>
-              Accept
+            <button onClick={() => acceptOrder(shopOrder?.assignment?._id || shopOrder?.assignment)} disabled={!shopOrder?.assignment || acceptingAssignmentId === (shopOrder?.assignment?._id || shopOrder?.assignment)} className='mt-4 rounded-lg bg-[#ff4d2d] px-4 py-2 text-sm font-bold text-white hover:bg-[#e64529] disabled:cursor-not-allowed disabled:opacity-50'>
+              {acceptingAssignmentId === (shopOrder?.assignment?._id || shopOrder?.assignment) ? 'Accepting...' : 'Accept'}
             </button>
             </article>
           })}</div> 
@@ -70,6 +109,51 @@ function DeliveryBoy() {
             <h3 className='mt-3 font-bold text-slate-800'>No delivery requests yet</h3>
             <p className='mt-1 text-sm text-slate-500'>New nearby orders will appear here.</p>
             </div>}
+
+          {/*show current order location on map if any*/}
+          {currentOrderError && <p role='alert' className='mt-4 text-sm text-red-600'>{currentOrderError}</p>}
+          {currentOrder?.order && <div className='mt-6 rounded-2xl border border-orange-100 bg-orange-50/40 p-5'>
+            <h3 className='text-sm font-bold text-slate-800'>Current order</h3>
+            <p className='mt-1 text-sm font-semibold text-slate-700'>
+              Order #{String(currentOrder.order._id).slice(-7)}
+            </p>
+            <div className='mt-4 space-y-3 text-sm text-slate-600'>
+              <div>
+                <p className='font-semibold text-slate-800'>Pickup from</p>
+                <p>{currentOrder.shop?.name || currentOrder.shopOrder?.shopName?.name || 'Shop unavailable'}</p>
+                <p className='flex gap-2'>
+                  <FaLocationDot className='mt-1 shrink-0 text-[#ff4d2d]' />
+                  <span>{shopAddress || 'Shop address unavailable'}</span>
+                </p>
+              </div>
+              <div>
+                <p className='font-semibold text-slate-800'>Customer</p>
+                <p>{currentOrder.customer?.Name || currentOrder.order.user?.Name || 'Customer name unavailable'}</p>
+                <p className='flex gap-2'>
+                  <FaPhone className='mt-1 shrink-0 text-[#ff4d2d]' />
+                  <span>{currentOrder.customer?.mobile || currentOrder.order.user?.mobile || 'Customer phone unavailable'}</span>
+                </p>
+              </div>
+              <div>
+                <p className='font-semibold text-slate-800'>Deliver to</p>
+                <p className='flex gap-2'>
+                  <FaLocationDot className='mt-1 shrink-0 text-[#ff4d2d]' />
+                  <span>{currentOrder.deliveryAddress?.text || 'Customer delivery address unavailable'}</span>
+                </p>
+              </div>
+            </div>
+            <div className='mt-3 space-y-2'>
+              {(currentOrder.shopOrder?.shopOrderItems || []).map((item, index) => (
+                <p key={item._id || `${item.name}-${index}`} className='text-sm text-slate-600'>
+                  {item.name || item.item?.name || 'Food item'} · Qty {item.quantity}
+                </p>
+              ))}
+            </div>
+            <p className='mt-3 text-sm font-semibold text-slate-800'>
+              Subtotal: ₹{Number(currentOrder.shopOrder?.subTotal || 0).toFixed(2)}
+            </p>
+          </div>
+          }
         </section>
       </div>
     </main>
