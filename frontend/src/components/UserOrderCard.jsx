@@ -1,11 +1,11 @@
 import React from 'react'
 import { FaLocationDot, FaTruck } from 'react-icons/fa6'
-
+import { useNavigate } from 'react-router-dom'
 const titleCase = (value = '') => value.replace(/\b\w/g, character => character.toUpperCase())
 
 function UserOrderCard({ order }) {
   if (!order) return null
-
+const navigate = useNavigate()
   const orderDate = order.createdAt
     ? new Date(order.createdAt).toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -79,7 +79,8 @@ function UserOrderCard({ order }) {
             </span>
           )}
         </div>
-        <button type='button' className='flex items-center gap-2 rounded-md bg-[#ff4d2d] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e74327]' onClick={() => window.alert(`Order ${String(order._id || '').slice(-7)} is ${orderStatus.toLowerCase()}.`)}>
+        <button type='button' className='flex items-center gap-2 rounded-md bg-[#ff4d2d] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#e74327]'
+         onClick={() =>navigate(`/track-order/${order._id}`)}>
           <FaTruck /> Track Order
         </button>
       </footer>

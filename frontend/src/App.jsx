@@ -18,6 +18,7 @@ import CheckOut from './pages/CheckOut.jsx'
 import OrderPlaced from './pages/OrderPlaced.jsx'
 import MyOrder from './pages/MyOrder.jsx'
 import useUpdateLocation from './hooks/UseUpdateLocation.jsx'
+import TrackOrder from './pages/TrackOrder.jsx'
 // import UseGetShopbyCity from './hooks/UseGetShopbyCity.jsx'
 function App() {
     const { isLoading } = useGetCurrentUser();
@@ -42,6 +43,7 @@ function App() {
       <Route path='/checkout' element={userData? <CheckOut/>:<Navigate to={"/Login"}/> }/>   
       <Route path='/order-placed' element={userData? <OrderPlaced/>:<Navigate to={"/Login"}/> }/>   
       <Route path='/my-orders' element={userData? <MyOrder/>:<Navigate to={"/Login"}/> }/>   
+      <Route path='/track-order/:orderId' element={userData? <TrackOrder/>:<Navigate to={"/Login"}/> }/>   
 
       <Route
         path='/edit-item/:itemId'
@@ -52,17 +54,6 @@ function App() {
   )
 }
 
- // <>
-    //   {isAuthenticated}
-    //   <Routes>
-    //     <Route path='/signup' element={isAuthenticated ? <Navigate to="/"  /> : <Signup />} />
-    //     <Route path='/login' element={isAuthenticated ? <Navigate to="/"  /> : <Login />} />
-    //     <Route path='/forgot-password' element={isAuthenticated ? <Navigate to="/"  /> : <ForgotPassword />} />
-    //     <Route path='/' element={isAuthenticated ? <Home /> : <Navigate to="/login"  />} />
-    //     <Route path='*' element={<Navigate to={isAuthenticated ? '/' : '/login'}  />} />
-    //     <Route path='/create-edit-shop' element={<Navigate to={isAuthenticated ? '/' : '/login'}  />} />
-        
-    //   </Routes>
-    // </>
+ 
 
 export default App;

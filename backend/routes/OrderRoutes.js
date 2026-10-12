@@ -1,7 +1,8 @@
 import express from 'express';
 // const { createAndEditShop, getMyShop, getNearbyShops } = require('../controller/shopController');
 import isAuth from '../middleware/isAuth.js';
-import { placeOrder, getMyOrders, changeOrderStatus, getDeliveryBoyAssignment, getCurrentOrderForDeliveryBoy, acceptOrder } from '../controller/PlaceOrderController.js';
+import { placeOrder, getMyOrders, changeOrderStatus, getDeliveryBoyAssignment, 
+    getCurrentOrderForDeliveryBoy, acceptOrder,getOrderByIdForTracking } from '../controller/PlaceOrderController.js';
 // const { getMyOrders, updateShopOrderStatus } = require('../controller/PlaceOrderController')
 const OrderRouter = express.Router();
 
@@ -11,5 +12,7 @@ OrderRouter.post("/update-status/:orderId/:shopId", isAuth, changeOrderStatus);
 OrderRouter.get("/get-assignments", isAuth, getDeliveryBoyAssignment);
 OrderRouter.get("/get-current-order", isAuth, getCurrentOrderForDeliveryBoy);
 OrderRouter.post("/accept-order/:assignmentId", isAuth, acceptOrder);
+OrderRouter.get("/get-order/:orderId", isAuth, getOrderByIdForTracking);
+
  
 export default OrderRouter;

@@ -10,10 +10,17 @@ const getBusyDeliveryBoyIds = async (deliveryBoyIds) => {
     const assignments = await DeliveryAssignment.find({
         assignedTo: { $in: deliveryBoyIds },
         status: 'assigned'
-    }).select('assignedTo order shopOrderId').populate('order', '_id shopOrders._id');
+    }).select('assignedTo order shopOrderId').populate(
+        'order',
+        '_id shopOrders._id shopOrders.status shopOrders.assignment'
+    );
     const activeAssignments = assignments.filter(assignment =>
         assignment.order &&
-        assignment.order.shopOrders.some(shopOrder => shopOrder._id.equals(assignment.shopOrderId))
+        assignment.order.shopOrders.some(shopOrder =>
+            shopOrder._id.equals(assignment.shopOrderId) &&
+            shopOrder.status === 'out for delivery' &&
+            String(shopOrder.assignment) === String(assignment._id)
+        )
     );
     const orphanedAssignmentIds = assignments
         .filter(assignment => !activeAssignments.includes(assignment))
@@ -71,6 +78,7 @@ export const getMyOrders = async (req, res) => {
         const user = await User.findById(req.userId).select('role');
         if (!user) return res.status(401).json({ message: 'User not found' });
         let query;
+        let deliveryBoyShopOrderKeys = new Set();
         if (user.role === 'owner') {
             query = { 'shopOrders.owner': req.userId };
         } else if (user.role === 'deliveryBoy') {
@@ -81,11 +89,24 @@ export const getMyOrders = async (req, res) => {
                 // from this list.
                 broadcastedTo: req.userId,
                 status: 'broadcasted'
-            }).select('order');//assignment mai se sirf order wali field lo
+            }).select('order shopOrderId').populate(
+                'order',
+                '_id shopOrders._id shopOrders.status shopOrders.assignment'
+            );
            // --v
             //Sirf wahi orders lao jinki IDs current delivery boy ke assignments mein mili hain.
            //Isliye delivery boy ko database ke saare orders nahi milt
-            query = { _id: { $in: assignments.map(assignment => assignment.order) } };
+            const validAssignments = assignments.filter(assignment => {
+                const shopOrder = assignment.order?.shopOrders.find(
+                    item => item._id.equals(assignment.shopOrderId)
+                );
+                return shopOrder?.status === 'out for delivery' &&
+                    String(shopOrder.assignment) === String(assignment._id);
+            });
+            deliveryBoyShopOrderKeys = new Set(validAssignments.map(
+                assignment => `${assignment.order._id}:${assignment.shopOrderId}`
+            ));
+            query = { _id: { $in: validAssignments.map(assignment => assignment.order._id) } };
             //ye query jb orders mai pass hogi to only assigned orders hi milegnge
         } else {
             query = { user: req.userId };
@@ -99,7 +120,16 @@ export const getMyOrders = async (req, res) => {
             .populate({ path: 'shopOrders.assignment', populate: { path: 'broadcastedTo', select: 'Name mobile' } })
             .populate({ path: 'shopOrders.assignedDeliveryBoy', select: 'Name mobile' });
 
-        if (user.role === 'deliveryBoy') return res.status(200).json(orders);
+        if (user.role === 'deliveryBoy') {
+            const deliveryOrders = orders.map(order => {
+                const deliveryOrder = order.toObject();
+                deliveryOrder.shopOrders = deliveryOrder.shopOrders.filter(shopOrder =>
+                    deliveryBoyShopOrderKeys.has(`${order._id}:${shopOrder._id}`)
+                );
+                return deliveryOrder;
+            });
+            return res.status(200).json(deliveryOrders);
+        }
         if (user.role !== 'owner') return res.status(200).json(orders);
         const ownerOrders = orders.map(order => {
             const ownerOrder = order.toObject();
@@ -136,6 +166,32 @@ export const changeOrderStatus = async (req, res) => {
         //se shopOrder nikalo  jis order ki id change hui hai shopId ke base pr
         let availableBoys = [];
         let deliveryboyPayload = [];
+
+        if (status !== 'out for delivery') {
+            await DeliveryAssignment.updateMany(
+                {
+                    order: order._id,
+                    shopOrderId: shopOrder._id,
+                    status: { $in: ['broadcasted', 'assigned'] }
+                },
+                { $set: { status: 'completed' } }
+            );
+            shopOrder.assignment = null;
+            shopOrder.assignedDeliveryBoy = null;
+        } else {
+            const currentAssignment = shopOrder.assignment
+                ? await DeliveryAssignment.findOne({
+                    _id: shopOrder.assignment,
+                    order: order._id,
+                    shopOrderId: shopOrder._id,
+                    status: { $in: ['broadcasted', 'assigned'] }
+                }).select('_id')
+                : null;
+            if (!currentAssignment) {
+                shopOrder.assignment = null;
+                shopOrder.assignedDeliveryBoy = null;
+            }
+        }
 
         if (status === 'out for delivery' && !shopOrder.assignment) {
             const { latitude, longitude } = order.deliveryAddress;
@@ -283,6 +339,11 @@ export const getDeliveryBoyAssignment = async (req, res) => {
             // Skip it instead of failing the whole delivery dashboard request.
             if (!a.order) return [];
             const shopOrder = a.order.shopOrders.find(so => so._id.equals(a.shopOrderId));
+            if (
+                !shopOrder ||
+                shopOrder.status !== 'out for delivery' ||
+                String(shopOrder.assignment) !== String(a._id)
+            ) return [];
             return [{
                 assignmentId: a._id,
                 orderId: a.order._id,
@@ -349,6 +410,22 @@ export const acceptOrder = async (req, res) => {
             return res.status(404).json({ message: 'Shop order not found' });
         }
 
+        if (
+            shopOrder.status !== 'out for delivery' ||
+            String(shopOrder.assignment) !== String(assignment._id)
+        ) {
+            await DeliveryAssignment.updateOne(
+                { _id: assignment._id, status: 'assigned' },
+                { $set: { status: 'completed' } }
+            );
+            if (String(shopOrder.assignment) === String(assignment._id)) {
+                shopOrder.assignment = null;
+                shopOrder.assignedDeliveryBoy = null;
+                await order.save();
+            }
+            return res.status(409).json({ message: 'This delivery is no longer available' });
+        }
+
         shopOrder.assignedDeliveryBoy = req.userId;
 
         await order.save();
@@ -401,6 +478,21 @@ export const getCurrentOrderForDeliveryBoy = async (req, res) => {
             );
             return res.status(404).json({ message: 'Shop order not found for this assignment' });
         }
+        if (
+            shopOrder.status !== 'out for delivery' ||
+            String(shopOrder.assignment) !== String(assignment._id)
+        ) {
+            await DeliveryAssignment.updateOne(
+                { _id: assignment._id, status: 'assigned' },
+                { $set: { status: 'completed' } }
+            );
+            if (String(shopOrder.assignment) === String(assignment._id)) {
+                shopOrder.assignment = null;
+                shopOrder.assignedDeliveryBoy = null;
+                await assignment.order.save();
+            }
+            return res.status(404).json({ message: 'No current order found for this delivery boy' });
+        }
 
         const coordinates = assignment.assignedTo?.location?.coordinates;
         const deliveryBoyLocation = Array.isArray(coordinates) && coordinates.length === 2
@@ -430,5 +522,27 @@ export const getCurrentOrderForDeliveryBoy = async (req, res) => {
         });
     } catch (error) {
         return res.status(500).json({ message: 'Error fetching current order for delivery boy', error: error.message });
+    }
+};
+
+//controller which help to user to tack its order byorderId and shopId
+export const getOrderByIdForTracking = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(orderId)) {
+            return res.status(400).json({ message: 'Invalid order id' });
+        }
+        const order = await Order_model.findOne({ _id: orderId, user: req.userId })
+            .populate({ path: 'shopOrders.shopName', select: 'name address city state' })
+            .populate({ path: 'shopOrders.shopOrderItems.item', select: 'name image price' })
+            .populate({ path: 'shopOrders.assignedDeliveryBoy', select: 'Name mobile location' })
+            .lean();
+
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+        return res.status(200).json(order);
+    } catch (error) {
+        return res.status(500).json({ message: 'Error fetching order for tracking', error: error.message });
     }
 };
