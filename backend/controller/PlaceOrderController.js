@@ -3,6 +3,7 @@ import Order_model from '../models/Order_model.js';
 import Shop from '../models/shop_models.js';
 import User from '../models/usermodel.js';
 import mongoose from 'mongoose';
+import { sendDeliveryOtpMail } from '../utils/sendmail.js';
 
 const getBusyDeliveryBoyIds = async (deliveryBoyIds) => {
     if (deliveryBoyIds.length === 0) return new Set();
@@ -162,6 +163,12 @@ export const changeOrderStatus = async (req, res) => {
         });
         if (!order) return res.status(404).json({ message: 'Order not found' });
         const shopOrder = order.shopOrders.id(shopId);
+        // A delivery partner's completed delivery is final. Keep this check on
+        // the server as well as the UI so the status cannot be changed via a
+        // direct API request.
+        if (shopOrder.status === 'delivered') {
+            return res.status(409).json({ message: 'Delivered orders cannot be changed' });
+        }
         //vo element meand vo order mil gya jiska status change hua hai ab us order mai 
         //se shopOrder nikalo  jis order ki id change hui hai shopId ke base pr
         let availableBoys = [];
@@ -546,3 +553,65 @@ export const getOrderByIdForTracking = async (req, res) => {
         return res.status(500).json({ message: 'Error fetching order for tracking', error: error.message });
     }
 };
+//creating controller for sending  otp
+
+export const sendOtpFordeliery= async (req, res) => {
+    try {
+        const { orderId, shopOrderId } = req.body;
+        if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(shopOrderId)) {
+            return res.status(400).json({ message: 'Invalid order id' });
+        }
+
+        const order = await Order_model.findById(orderId).populate('user', 'Email');
+        const shopOrder = order?.shopOrders.id(shopOrderId);
+        if (!order || !shopOrder) {
+            return res.status(404).json({ message: 'Order or shop order not found' });
+        }
+        if (shopOrder.status !== 'out for delivery' || String(shopOrder.assignedDeliveryBoy) !== String(req.userId)) {
+            return res.status(403).json({ message: 'You cannot send an OTP for this order' });
+        }
+        if (!order.user?.Email) {
+            return res.status(400).json({ message: 'Customer email is unavailable' });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        shopOrder.deliveryOtp = otp;
+        shopOrder.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        await order.save();
+        await sendDeliveryOtpMail(order.user.Email, otp);
+
+        return res.status(200).json({ message: 'OTP sent to the customer successfully' });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error sending OTP for delivery', error: err.message });
+    }
+}
+
+export const verifyDeliveryOtp= async (req, res) =>{
+    try {
+        const { orderId, shopOrderId, otp } = req.body;
+        const order = await Order_model.findById(orderId);
+        const shopOrder = order?.shopOrders.id(shopOrderId);
+        if (!order || !shopOrder) {
+            return res.status(404).json({ message: 'Order or shop order not found' });
+        }
+        if (shopOrder.status !== 'out for delivery' || String(shopOrder.assignedDeliveryBoy) !== String(req.userId)) {
+            return res.status(403).json({ message: 'You cannot verify an OTP for this order' });
+        }
+        if (!shopOrder.deliveryOtp || shopOrder.deliveryOtp !== String(otp) || !shopOrder.otpExpires || shopOrder.otpExpires < new Date()) {
+            return res.status(400).json({ message: 'Invalid or expired OTP' });
+        }
+
+        shopOrder.status = 'delivered';
+        shopOrder.deliveryAt = new Date();
+        shopOrder.deliveryOtp = null;
+        shopOrder.otpExpires = null;
+        await order.save();
+        await DeliveryAssignment.updateOne(
+            { shopOrderId: shopOrder._id, order: order._id, assignedTo: req.userId },
+            { $set: { status: 'completed' } }
+        );
+        return res.status(200).json({ message: 'Order delivered successfully' });
+    } catch (err) {
+        return res.status(500).json({ message: 'Error verifying otp for delivery', error: err.message });
+    }
+}    

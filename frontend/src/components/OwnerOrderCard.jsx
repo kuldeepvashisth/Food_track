@@ -18,6 +18,7 @@ function OwnerOrderCard({ order }) {
 
   const customer = order.user || {}
   const items = shopOrder?.shopOrderItems || []
+  const isDelivered = status === 'delivered'
   const orderId = String(order._id || '').slice(-7) || 'unknown'
   const orderDate = order.createdAt
     ? new Date(order.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -57,14 +58,15 @@ function OwnerOrderCard({ order }) {
         <div className='text-right'>
           <p className='text-xs font-semibold uppercase text-gray-400'>{order.paymentMethod === 'cod' ? 'COD' : 'Online'}</p>
 
-          <select value={status} onChange={(e) => handleStatusChange(order._id, shopOrder._id, e.target.value)} disabled={isSaving || !shopOrder?._id} className='mt-1 rounded-md border border-blue-200
-           bg-blue-50 px-2 py-1 text-sm font-semibold text-[#2878c8] outline-none focus:ring-2 focus:ring-blue-200'>
+          <select value={status} onChange={(e) => handleStatusChange(order._id, shopOrder._id, e.target.value)} disabled={isSaving || !shopOrder?._id || isDelivered} className='mt-1 rounded-md border border-blue-200
+           bg-blue-50 px-2 py-1 text-sm font-semibold text-[#2878c8] outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-70'>
             <option value='pending'>Pending</option>
             <option value='processing'>Processing</option>
             <option value='out for delivery'>Out for delivery</option>
             <option value='delivered'>Delivered</option>
           </select>
           <p className='mt-1 text-xs font-semibold capitalize text-[#2878c8]'>Order status: {status}</p>
+          {isDelivered && <p className='mt-1 text-[10px] font-semibold text-emerald-600'>Delivered status is locked</p>}
           {isSaving && <p className='mt-1 text-[10px] text-gray-400'>Saving...</p>}
         </div>
       </header>

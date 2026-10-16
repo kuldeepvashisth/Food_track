@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useSelector } from 'react-redux';
 import { GiForkKnifeSpoon } from 'react-icons/gi';
 import { FiMapPin, FiRefreshCw, FiStar } from 'react-icons/fi';
-
+import { useEffect } from 'react';
 import { categories } from '../Category.js';
 import CategoryCard from './CategoryCard.jsx';
 import UseGetShopbyCity from '../hooks/UseGetShopbyCity.jsx';
@@ -11,7 +11,7 @@ import FoodCard from './FoodCard.jsx';
 function UserDashboard() {
   const { userData, currentCity, shopsInMyCity, itemsInMyCity } = useSelector((state) => state.user);
   const [selectedCategory, setSelectedCategory] = useState('All');
-
+  const [updateItemList, setUpdateItemList] = useState([]);
   const nearbyShops = shopsInMyCity || [];
   const nearbyItems = itemsInMyCity || [];
 
@@ -20,6 +20,21 @@ function UserDashboard() {
       .filter((item) => selectedCategory === 'All' || item.category?.toLowerCase() === selectedCategory.toLowerCase())
       .map((item) => ({ ...item, shopName: shop.name }))
   );
+
+  const handlefilterByCategory = (category) => {
+   if(category === 'All') {
+    setUpdateItemList(itemsInMyCity);
+   }
+   else {
+    const filteredItems = itemsInMyCity.filter((item) => item.category?.toLowerCase() === category.toLowerCase());
+    setUpdateItemList(filteredItems);
+   }
+    setSelectedCategory(category);
+  }
+
+  useEffect(() => {
+    setUpdateItemList(itemsInMyCity);
+  }, [itemsInMyCity]);
 
   return (
     <main className='min-h-screen w-full min-w-0 overflow-x-hidden bg-[#fff9f6] px-4 pb-14 pt-24 sm:px-6'>
@@ -40,7 +55,7 @@ function UserDashboard() {
           </div>
           <div className='flex gap-4 overflow-x-auto pb-3'>
             {categories.map((item, index) => <CategoryCard name={item.category} image={item.image} key={index}
-              active={selectedCategory === item.category} onClick={() => setSelectedCategory(item.category)} />)}
+              active={selectedCategory === item.category} onClick={() => handlefilterByCategory(item.category)} />)}
           </div>
         </section>
 
@@ -84,7 +99,7 @@ function UserDashboard() {
           <div className='w-full h-auto max-w-6xl flex flex-col flex-wrap gap-5 items-start p-[10px] justify-center'>
 
             <div className='grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3'>
-              {nearbyItems
+              {updateItemList
                 .filter((item) => selectedCategory === 'All' || item.category?.toLowerCase() === selectedCategory.toLowerCase())
                 .map((item) => <FoodCard key={item._id} data={item} />)}
                 </div>

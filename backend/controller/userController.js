@@ -3,7 +3,7 @@ import User from '../models/usermodel.js';
 export const getCurrentUser = async (req, res) => {
     try {
         const user = await User.findById(req.userId).select(
-            '-password -resetotp -resetotpExpiry -isverified'
+            '-password -resetotp -otpExpires -isverified'
         );
 
         if (!user) {

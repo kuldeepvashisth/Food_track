@@ -121,7 +121,7 @@ export const sendOtp = async (req, res) => {
         }
         const otp = Math.floor(1000 + Math.random() * 900000).toString();
         user.resetotp = otp;
-        user.resetotpExpiry = Date.now() + 5 * 60 * 1000; // OTP valid for 5 minutes
+        user.otpExpires = Date.now() + 5 * 60 * 1000; // OTP valid for 5 minutes
         user.isverified = false; // Mark user as unverified until OTP is verified
         await user.save();
 
@@ -141,12 +141,12 @@ export const verifyOtp = async (req, res) => {
         if (!user) {
             return res.status(400).json({ message: "User not found" });
         }
-        if (!user.resetotp || user.resetotp !== otp || user.resetotpExpiry < Date.now()) {
+        if (!user.resetotp || user.resetotp !== otp || user.otpExpires < Date.now()) {
             return res.status(400).json({ message: "Invalid or expired OTP" });
         }
         user.isverified = true; // Mark user as verified after successful OTP verification
         user.resetotp = null; // Clear the OTP after verification
-        user.resetotpExpiry = null; // Clear the OTP expiry after verification
+        user.otpExpires = null; // Clear the OTP expiry after verification
         await user.save();
         return res.status(200).json({ message: "OTP verified successfully" });
     }

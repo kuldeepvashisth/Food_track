@@ -76,23 +76,29 @@ function TrackOrder() {
           <p className='mt-1 text-sm font-medium capitalize'>Status: {shopOrder.status}</p>
           {['out for delivery', 'delivered'].includes(shopOrder.status) && (
             <>
-              <div className='mt-3 rounded-lg bg-orange-50 p-3 text-sm'>
-                <h3 className='font-semibold'>Delivery partner</h3>
-                <p>Name: {shopOrder.assignedDeliveryBoy?.Name || 'Unavailable'}</p>
-                <p>Mobile: {shopOrder.assignedDeliveryBoy?.mobile || 'Unavailable'}</p>
-              </div>
-              <DeliveryBoyTracking
-                data={{
-                  deliveryBoyLocation: {
-                    latitude: shopOrder.assignedDeliveryBoy?.location?.coordinates?.[1],
-                    longitude: shopOrder.assignedDeliveryBoy?.location?.coordinates?.[0]
-                  },
-                  customerLocation: {
-                    latitude: currentOrder.deliveryAddress?.latitude,
-                    longitude: currentOrder.deliveryAddress?.longitude
-                  }
-                }}
-              />
+            
+              {shopOrder.status === 'out for delivery' && (
+                <div className='mt-3 rounded-lg bg-orange-50 p-3 text-sm'>
+                  <h3 className='font-semibold'>Delivery partner</h3>
+                  <p>Name: {shopOrder.assignedDeliveryBoy?.Name || 'Unavailable'}</p>
+                  <p>Mobile: {shopOrder.assignedDeliveryBoy?.mobile || 'Unavailable'}</p>
+                </div>
+              )}
+            
+              {shopOrder.status === 'out for delivery' && (
+                <DeliveryBoyTracking
+                  data={{
+                    deliveryBoyLocation: {
+                      latitude: shopOrder.assignedDeliveryBoy?.location?.coordinates?.[1],
+                      longitude: shopOrder.assignedDeliveryBoy?.location?.coordinates?.[0]
+                    },
+                    customerLocation: {
+                      latitude: currentOrder.deliveryAddress?.latitude,
+                      longitude: currentOrder.deliveryAddress?.longitude
+                    }
+                  }}
+                />
+              )}
             </>
           )}
           <div className='mt-3'>
